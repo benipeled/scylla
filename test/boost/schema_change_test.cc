@@ -773,6 +773,7 @@ future<> test_schema_digest_does_not_change_with_disabled_features(sstring data_
 }
 
 SEASTAR_TEST_CASE(test_schema_digest_does_not_change) {
+    abort();
     std::vector<utils::UUID> expected_digests{
         utils::UUID("264f79fc-61bd-3670-8d6e-2794f9787b0a"),
         utils::UUID("d2035515-b299-3265-b920-7dbe5306e72a"),

@@ -1280,6 +1280,8 @@ SEASTAR_THREAD_TEST_CASE(test_foreign_reader_as_mutation_source) {
 }
 
 SEASTAR_TEST_CASE(test_trim_clustering_row_ranges_to) {
+
+    BOOST_REQUIRE_EQUAL(1,0);
     struct null { };
     struct missing { };
     struct key {
