@@ -31,7 +31,7 @@ If you want to run only a specific test:
 
     $ ./test.py suitename/testname
 
-Build artefacts, such as test output and harness output is stored
+Build artifacts, such as test output and harness output is stored
 in `./testlog`. Scylla data files are stored in `/tmp`.
 
 ## How it works
@@ -53,7 +53,7 @@ runs `cql/lwt_test`, `cql/lwt_batch_test`, as well as
 `boost/cql_query_test`.
 
 The `./testlog` directory is created if it doesn't exist, otherwise it is
-cleared from the previous run artefacts.
+cleared from the previous run artifacts.
 
 Matched tests are run concurrently, with concurrency factor set to the
 number of available CPU cores. `test.py` continues until all tests are run
@@ -114,7 +114,7 @@ different command line arguments. The custom arguments can be set in
 
 If a test fails, its log can be found in `testlog/${mode}/testname.log`.
 By default, all unit tests are built stripped. To build non-stripped tests,
-`./configure` with `--tests-debuginfo list-of-tests`.
+run `./configure.py` with `--tests-debuginfo <list-of-tests>`.
 `test.py` adds some command line arguments to unit tests. The exact way in
 which the test is invoked is recorded in `testlog/test.py.log`.
 
@@ -243,7 +243,7 @@ operations and can clean up resources, including added
 servers, when tests end.
 `test.py` automatically detects if a cluster can not be shared with a
 subsequent test because it was manipulated with. Today the check
-is quite simple: any cluster that has has nodes added or removed,
+is quite simple: any cluster that has nodes added or removed,
 started or stopped, even if it ended up in the same state
 as it was at the beginning of the test, is considered "dirty".
 Such clusters are not returned to the pool, but destroyed, and
