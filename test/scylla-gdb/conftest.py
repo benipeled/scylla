@@ -11,6 +11,11 @@
 
 import pytest
 import os
+from pytest_elk_reporter import ElkReporter
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 try:
     import gdb as gdb_library
@@ -30,6 +35,20 @@ def pytest_addoption(parser):
         help='Process ID of running Scylla to attach gdb to')
     parser.addoption('--scylla-tmp-dir', action='store', default=None,
         help='Temporary directory where Scylla runs')
+    parser.addoption('--publish-elk', action='store_true', default=False,
+                     help="Publish test results to Elasticsearch")
+
+
+def pytest_plugin_registered(plugin):
+    if isinstance(plugin, ElkReporter):
+        if plugin.config.getoption("--publish-elk"):
+            try:
+                plugin.es_address = os.getenv('SCYLLA_ELASTIC_URL')
+                plugin.es_username = os.getenv('SCYLLA_ELASTIC_USER')
+                plugin.es_password = os.getenv('SCYLLA_ELASTIC_PASS')
+                plugin.es_index_name = os.getenv('SCYLLA_ELASTIC_INDEX_NAME')
+            except Exception as e:
+                logger.warning(f"Error while setting elasticsearch configuration: {e}")
 
 # Scylla's "scylla-gdb.py" does two things: It configures gdb to add new
 # "scylla" commands, and it implements a bunch of useful functions in Python.

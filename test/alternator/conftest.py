@@ -34,6 +34,14 @@ from packaging.version import Version
 if (Version(botocore.__version__) < Version('1.12.54')):
     pytest.exit("Your Boto library is too old. Please upgrade it,\ne.g. using:\n    sudo pip{} install --upgrade boto3".format(sys.version_info[0]))
 
+from pytest_elk_reporter import ElkReporter
+import logging
+import os
+
+logger = logging.getLogger(__name__)
+
+
+
 # By default, tests run against a local Scylla installation on localhost:8080/.
 # The "--aws" option can be used to run against Amazon DynamoDB in the us-east-1
 # region.
@@ -47,6 +55,20 @@ def pytest_addoption(parser):
         help="communicate with given URL instead of defaults")
     parser.addoption("--runveryslow", action="store_true",
         help="run tests marked veryslow instead of skipping them")
+    parser.addoption('--publish-elk', action='store_true', default=False,
+                     help="Publish test results to Elasticsearch")
+
+
+def pytest_plugin_registered(plugin):
+    if isinstance(plugin, ElkReporter):
+        if plugin.config.getoption("--publish-elk"):
+            try:
+                plugin.es_address = os.getenv('SCYLLA_ELASTIC_URL')
+                plugin.es_username = os.getenv('SCYLLA_ELASTIC_USER')
+                plugin.es_password = os.getenv('SCYLLA_ELASTIC_PASS')
+                plugin.es_index_name = os.getenv('SCYLLA_ELASTIC_INDEX_NAME')
+            except Exception as e:
+                logger.warning(f"Error while setting elasticsearch configuration: {e}")
 
 def pytest_configure(config):
     config.addinivalue_line("markers", "veryslow: mark test as very slow to run")

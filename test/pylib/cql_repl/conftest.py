@@ -20,6 +20,8 @@ from cassandra.cluster import EXEC_PROFILE_DEFAULT  # pylint: disable=no-name-in
 from cassandra.policies import RoundRobinPolicy    # type: ignore # pylint: disable=no-name-in-module
 from cassandra.connection import DRIVER_NAME       # type: ignore # pylint: disable=no-name-in-module
 from cassandra.connection import DRIVER_VERSION    # type: ignore # pylint: disable=no-name-in-module
+from pytest_elk_reporter import ElkReporter
+import os
 
 
 logger = logging.getLogger(__name__)
@@ -42,6 +44,9 @@ def pytest_addoption(parser) -> None:
         help='CQL server port to connect to')
     parser.addoption('--ssl', action='store_true',
         help='Connect to CQL via an encrypted TLSv1.2 connection')
+    parser.addoption('--publish-elk', action='store_true', default=False,
+                     help="Publish test results to Elasticsearch")
+
 
 
 # "cql" fixture: set up client object for communicating with the CQL API.
@@ -130,3 +135,31 @@ def keyspace(cql, this_dc):             # pylint: disable=redefined-outer-name
                 f"WITH REPLICATION = {{ 'class' : 'NetworkTopologyStrategy', '{this_dc}' : 1 }}")
     yield keyspace_name
     cql.execute(f"DROP KEYSPACE {keyspace_name}")
+
+
+def pytest_plugin_registered(plugin):
+    if isinstance(plugin, ElkReporter):
+        if plugin.config.getoption("--publish-elk"):
+            try:
+                plugin.es_address = os.getenv('SCYLLA_ELASTIC_URL')
+                plugin.es_username = os.getenv('SCYLLA_ELASTIC_USER')
+                plugin.es_password = os.getenv('SCYLLA_ELASTIC_PASS')
+                plugin.es_index_name = os.getenv('SCYLLA_ELASTIC_INDEX_NAME')
+            except Exception as e:
+                logger.warning(f"Error while setting elasticsearch configuration: {e}")
+
+
+@pytest.fixture(scope="session", autouse=True)
+def report_extra_info_to_elasticsearch(request, cql):
+    data = {
+        "arch": os.uname().machine,
+        "scylla_version": cql.execute("SELECT version from system.versions").one()[0],
+        "scylla_build_mode": cql.execute("SELECT build_mode from system.versions").one()[0],
+        "CI_JOB_NAME": os.getenv('JOB_NAME'),
+        "CI_BUILD_NUMBER": os.getenv('BUILD_NUMBER'),
+        "CI_BUILD_URL": os.getenv('BUILD_URL'),
+        "CI_NODE_NAME": os.getenv('NODE_NAME'),
+    }
+
+    elk = request.config.pluginmanager.get_plugin("elk-reporter-runtime")
+    elk.session_data.update(**data)

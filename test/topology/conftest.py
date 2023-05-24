@@ -22,6 +22,8 @@ from cassandra.policies import TokenAwarePolicy                          # type:
 from cassandra.policies import WhiteListRoundRobinPolicy                 # type: ignore
 from cassandra.connection import DRIVER_NAME       # type: ignore # pylint: disable=no-name-in-module
 from cassandra.connection import DRIVER_VERSION    # type: ignore # pylint: disable=no-name-in-module
+import os
+from pytest_elk_reporter import ElkReporter
 
 
 logger = logging.getLogger(__name__)
@@ -38,6 +40,8 @@ def pytest_addoption(parser):
                      help='CQL server port to connect to')
     parser.addoption('--ssl', action='store_true',
                      help='Connect to CQL via an encrypted TLSv1.2 connection')
+    parser.addoption('--publish-elk', action='store_true', default=False,
+                     help="Publish test results to Elasticsearch")
 
 
 # This is a constant used in `pytest_runtest_makereport` below to store a flag
@@ -239,3 +243,30 @@ async def random_tables(request, manager):
     failed = request.node.stash[FAILED_KEY]
     if not failed and not await manager.is_dirty():
         tables.drop_all()
+
+
+def pytest_plugin_registered(plugin):
+    if isinstance(plugin, ElkReporter):
+        if plugin.config.getoption("--publish-elk"):
+            try:
+                plugin.es_address = os.getenv('SCYLLA_ELASTIC_URL')
+                plugin.es_username = os.getenv('SCYLLA_ELASTIC_USER')
+                plugin.es_password = os.getenv('SCYLLA_ELASTIC_PASS')
+                plugin.es_index_name = os.getenv('SCYLLA_ELASTIC_INDEX_NAME')
+            except Exception as e:
+                logger.warning(f"Error while setting elasticsearch configuration: {e}")
+
+
+def report_extra_info_to_elasticsearch(request, manager):
+    data = {
+        "arch": os.uname().machine,
+        "scylla_version": manager.cql.execute("SELECT version from system.versions").one()[0],
+        "scylla_build_mode": manager.cql.execute("SELECT build_mode from system.versions").one()[0],
+        "CI_JOB_NAME": os.getenv('JOB_NAME'),
+        "CI_BUILD_NUMBER": os.getenv('BUILD_NUMBER'),
+        "CI_BUILD_URL": os.getenv('BUILD_URL'),
+        "CI_NODE_NAME": os.getenv('NODE_NAME'),
+    }
+
+    elk = request.config.pluginmanager.get_plugin("elk-reporter-runtime")
+    elk.session_data.update(**data)

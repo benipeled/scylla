@@ -17,6 +17,11 @@ import sys
 from cassandra.auth import PlainTextAuthProvider
 from cassandra.cluster import Cluster, ConsistencyLevel, ExecutionProfile, EXEC_PROFILE_DEFAULT
 from cassandra.policies import RoundRobinPolicy
+from pytest_elk_reporter import ElkReporter
+import logging
+import os
+
+logger = logging.getLogger(__name__)
 
 # Use the util.py library from ../cql-pytest:
 sys.path.insert(1, sys.path[0] + '/../cql-pytest')
@@ -34,6 +39,9 @@ def pytest_addoption(parser):
         help='Connect to CQL via an encrypted TLSv1.2 connection')
     parser.addoption('--api-port', action='store', default='10000',
         help='server REST API port to connect to')
+    parser.addoption('--publish-elk', action='store_true', default=False,
+                     help="Publish test results to Elasticsearch")
+
 
 class RestApiSession:
     def __init__(self, host, port):
@@ -113,4 +121,32 @@ def cql(request):
 @pytest.fixture(scope="session")
 def this_dc(cql):
     yield cql.execute("SELECT data_center FROM system.local").one()[0]
+
+
+def pytest_plugin_registered(plugin):
+    if isinstance(plugin, ElkReporter):
+        if plugin.config.getoption("--publish-elk"):
+            try:
+                plugin.es_address = os.getenv('SCYLLA_ELASTIC_URL')
+                plugin.es_username = os.getenv('SCYLLA_ELASTIC_USER')
+                plugin.es_password = os.getenv('SCYLLA_ELASTIC_PASS')
+                plugin.es_index_name = os.getenv('SCYLLA_ELASTIC_INDEX_NAME')
+            except Exception as e:
+                logger.warning(f"Error while setting elasticsearch configuration: {e}")
+
+
+@pytest.fixture(scope="session", autouse=True)
+def report_extra_info_to_elasticsearch(request, cql):
+    data = {
+        "arch": os.uname().machine,
+        "scylla_version": cql.execute("SELECT version from system.versions").one()[0],
+        "scylla_build_mode": cql.execute("SELECT build_mode from system.versions").one()[0],
+        "CI_JOB_NAME": os.getenv('JOB_NAME'),
+        "CI_BUILD_NUMBER": os.getenv('BUILD_NUMBER'),
+        "CI_BUILD_URL": os.getenv('BUILD_URL'),
+        "CI_NODE_NAME": os.getenv('NODE_NAME'),
+    }
+
+    elk = request.config.pluginmanager.get_plugin("elk-reporter-runtime")
+    elk.session_data.update(**data)
 

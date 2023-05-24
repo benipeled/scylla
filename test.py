@@ -842,6 +842,9 @@ class PythonTest(Test):
             "-o",
             "junit_family=xunit2",
             "--junit-xml={}".format(self.xmlout)]
+        if options.publish_elk:
+            self.args.append('--publish-elk')
+
         if options.markers:
             self.args.append(f"-m={options.markers}")
 
@@ -1148,6 +1151,10 @@ def parse_cmd_line() -> argparse.Namespace:
                              "is only supported by python tests for now, other tests ignore it. "
                              "By default, the marker filter is not applied and all tests will be run without exception."
                              "To exclude e.g. slow tests you can write --markers 'not slow'.")
+    parser.add_argument('--publish-elk', action='store_true', default=False,
+                        help="Publish test results to Elasticsearch (requires SCYLLA_ELASTIC_URL, "
+                             "SCYLLA_ELASTIC_USER, SCYLLA_ELASTIC_PASS, and SCYLLA_ELASTIC_INDEX_NAME environment "
+                             "variables)")
 
     scylla_additional_options = parser.add_argument_group('Additional options for Scylla tests')
     scylla_additional_options.add_argument('--x-log2-compaction-groups', action="store", default="0", type=int,
