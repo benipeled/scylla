@@ -324,6 +324,7 @@ elif [ "$ID" = "fedora" ]; then
     pip3 install "$PIP_DEFAULT_ARGS" scylla-driver
     pip3 install "$PIP_DEFAULT_ARGS" traceback-with-variables
     pip3 install "$PIP_DEFAULT_ARGS" scylla-api-client
+    pip3 install "$PIP_DEFAULT_ARGS" pytest-elk-reporter==0.2.2
 
     cargo --config net.git-fetch-with-cli=true install cxxbridge-cmd --root /usr/local
     if [ -f "$(node_exporter_fullpath)" ] && node_exporter_checksum; then
