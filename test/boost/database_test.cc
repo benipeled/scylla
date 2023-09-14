@@ -190,6 +190,7 @@ SEASTAR_TEST_CASE(test_truncate_without_snapshot_during_writes) {
 }
 
 SEASTAR_TEST_CASE(test_querying_with_limits) {
+    BOOST_REQUIRE_EQUAL(1,0);
     return do_with_cql_env_and_compaction_groups([](cql_test_env& e) {
             // FIXME: restore indent.
             e.execute_cql("create table ks.cf (k text, v int, primary key (k));").get();
