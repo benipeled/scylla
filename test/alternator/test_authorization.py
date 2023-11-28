@@ -13,6 +13,7 @@ import requests
 # Test that trying to perform an operation signed with a wrong key
 # will not succeed
 def test_wrong_key_access(request, dynamodb):
+    assert 1 == 2
     print("Please make sure authorization is enforced in your Scylla installation: alternator_enforce_authorization: true")
     url = dynamodb.meta.client._endpoint.host
     with pytest.raises(ClientError, match='UnrecognizedClientException'):
